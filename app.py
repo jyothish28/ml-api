@@ -3,10 +3,14 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 import io
+from fastapi import HTTPException
 
 app = FastAPI(title="Lung Disease Prediction API")
 
-model = None
+model = tf.keras.models.load_model(
+    "unet_model.h5",
+    compile=False
+)
 
 labels = ["normal", "benign", "malignant", "adenocarcio"]
 
@@ -30,24 +34,32 @@ def home():
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
+    try:
 
-    contents = await file.read()
+        contents = await file.read()
 
-    image = Image.open(io.BytesIO(contents)).convert("L")
-    image = image.resize((256,256))
+        print("Received image")
+        print(image.shape)
 
-    image = np.array(image)/255.0
-    image = image.reshape(1,256,256,1)
+        image = Image.open(io.BytesIO(contents)).convert("L")
+        image = image.resize((256,256))
 
-    pred = model.predict(image)
+        image = np.array(image) / 255.0
+        image = image.reshape(1,256,256,1)
 
-    index = int(np.argmax(pred))
-    confidence = float(np.max(pred))
+        pred = model.predict(image)
 
-    disease = labels[index]
+        index = int(np.argmax(pred))
+        confidence = float(np.max(pred))
 
-    return {
-        "disease": disease,
-        "confidence": confidence,
-        "suggestion": suggestions[disease]
-    }
+        disease = labels[index]
+
+        return {
+            "disease": disease,
+            "confidence": confidence,
+            "suggestion": suggestions[disease]
+        }
+
+    except Exception as e:
+        print("Prediction error:", e)
+        raise HTTPException(status_code=500, detail=str(e))
