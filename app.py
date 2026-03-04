@@ -19,8 +19,7 @@ print("Loading model...")
 
 model = tf.keras.models.load_model(
     MODEL_PATH,
-    compile=False,
-    safe_mode=False
+    compile=False
 )
 
 print("Model loaded successfully")

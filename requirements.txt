@@ -1,6 +1,7 @@
-fastapi==0.110.0
-uvicorn[standard]==0.29.0
-tensorflow==2.15.0
-numpy
+fastapi==0.95.2
+uvicorn[standard]==0.22.0
+tensorflow==2.12.0
+keras==2.12.0
+numpy==1.23.5
 pillow
 python-multipart
