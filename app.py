@@ -3,15 +3,27 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 import io   # ✅ THIS WAS MISSING
+import os
 
 app = FastAPI(title="Lung Disease Prediction API")
 
 # Load model once at startup
+MODEL_PATH = "unet_model.h5"
+
+print("Checking model file...")
+
+if not os.path.exists(MODEL_PATH):
+    raise RuntimeError("Model file not found")
+
+print("Loading model...")
+
 model = tf.keras.models.load_model(
-    "unet_model.h5",
-    compile=False
+    MODEL_PATH,
+    compile=False,
+    safe_mode=False
 )
 
+print("Model loaded successfully")
 # Class labels
 labels = ["normal", "benign", "malignant", "adenocarcio"]
 
@@ -27,58 +39,34 @@ suggestions = {
 # Home route
 @app.get("/")
 def home():
-    return {"message": "Lung Disease Prediction API is running"}
-
+    return {"status": "API running successfully"}
 
 # Prediction route
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-
     try:
-
-        # Read image
         contents = await file.read()
 
-        # Convert to grayscale
         image = Image.open(io.BytesIO(contents)).convert("L")
-
-        # Resize
         image = image.resize((256,256))
 
-        # Convert to numpy
-        image = np.array(image)
-
-        # Normalize
-        image = image / 255.0
-
-        # Reshape to model input
+        image = np.array(image)/255.0
         image = image.reshape(1,256,256,1)
 
-        # Predict
         pred = model.predict(image)
 
         index = int(np.argmax(pred))
-
         confidence = float(np.max(pred))
 
         disease = labels[index]
 
-        suggestion = suggestions[disease]
-
         return {
-
             "disease": disease,
-
             "confidence": confidence,
-
-            "suggestion": suggestion
-
+            "suggestion": suggestions[disease]
         }
 
     except Exception as e:
-
         return {
-
             "error": str(e)
-
         }
