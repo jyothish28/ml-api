@@ -2,55 +2,80 @@ from fastapi import FastAPI, File, UploadFile
 import tensorflow as tf
 import numpy as np
 from PIL import Image
-import io
+import io   # ✅ THIS WAS MISSING
 
 app = FastAPI(title="Lung Disease Prediction API")
 
-model = None
+# Load model once at startup
+model = tf.keras.models.load_model("unet_model.h5")
 
+# Class labels
 labels = ["normal", "benign", "malignant", "adenocarcio"]
 
+# Suggestions
 suggestions = {
     "normal": "No issues detected. Maintain regular checkups.",
-    "benign": "Benign lesion found. Consult doctor for monitoring.",
+    "benign": "Benign lesion found. Consult with doctor for monitoring.",
     "malignant": "Malignant tumor detected. Seek immediate medical attention.",
     "adenocarcio": "Adenocarcinoma detected. Contact oncologist urgently."
 }
 
 
-@app.on_event("startup")
-def load_model():
-    global model
-    print("Loading model...")
-    model = tf.keras.models.load_model("unet_model.h5", compile=False)
-    print("Model loaded successfully")
-
-
+# Home route
 @app.get("/")
 def home():
-    return {"message": "Lung Disease Prediction API Running"}
+    return {"message": "Lung Disease Prediction API is running"}
 
 
+# Prediction route
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
 
-    contents = await file.read()
+    try:
 
-    image = Image.open(io.BytesIO(contents)).convert("L")
-    image = image.resize((256,256))
+        # Read image
+        contents = await file.read()
 
-    image = np.array(image) / 255.0
-    image = image.reshape(1,256,256,1)
+        # Convert to grayscale
+        image = Image.open(io.BytesIO(contents)).convert("L")
 
-    pred = model.predict(image)
+        # Resize
+        image = image.resize((256,256))
 
-    index = int(np.argmax(pred))
-    confidence = float(np.max(pred))
+        # Convert to numpy
+        image = np.array(image)
 
-    disease = labels[index]
+        # Normalize
+        image = image / 255.0
 
-    return {
-        "disease": disease,
-        "confidence": confidence,
-        "suggestion": suggestions[disease]
-    }
+        # Reshape to model input
+        image = image.reshape(1,256,256,1)
+
+        # Predict
+        pred = model.predict(image)
+
+        index = int(np.argmax(pred))
+
+        confidence = float(np.max(pred))
+
+        disease = labels[index]
+
+        suggestion = suggestions[disease]
+
+        return {
+
+            "disease": disease,
+
+            "confidence": confidence,
+
+            "suggestion": suggestion
+
+        }
+
+    except Exception as e:
+
+        return {
+
+            "error": str(e)
+
+        }
