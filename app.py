@@ -2,70 +2,55 @@ from fastapi import FastAPI, File, UploadFile
 import tensorflow as tf
 import numpy as np
 from PIL import Image
-import io   # ✅ THIS WAS MISSING
-import os
+import io
 
 app = FastAPI(title="Lung Disease Prediction API")
 
-# Load model once at startup
-MODEL_PATH = "unet_model.h5"
+model = None
 
-print("Checking model file...")
-
-if not os.path.exists(MODEL_PATH):
-    raise RuntimeError("Model file not found")
-
-print("Loading model...")
-
-model = tf.keras.models.load_model(
-    MODEL_PATH,
-    compile=False
-)
-
-print("Model loaded successfully")
-# Class labels
 labels = ["normal", "benign", "malignant", "adenocarcio"]
 
-# Suggestions
 suggestions = {
     "normal": "No issues detected. Maintain regular checkups.",
-    "benign": "Benign lesion found. Consult with doctor for monitoring.",
+    "benign": "Benign lesion found. Consult doctor for monitoring.",
     "malignant": "Malignant tumor detected. Seek immediate medical attention.",
     "adenocarcio": "Adenocarcinoma detected. Contact oncologist urgently."
 }
 
 
-# Home route
+@app.on_event("startup")
+def load_model():
+    global model
+    print("Loading model...")
+    model = tf.keras.models.load_model("unet_model.h5", compile=False)
+    print("Model loaded successfully")
+
+
 @app.get("/")
 def home():
-    return {"status": "API running successfully"}
+    return {"message": "Lung Disease Prediction API Running"}
 
-# Prediction route
+
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    try:
-        contents = await file.read()
 
-        image = Image.open(io.BytesIO(contents)).convert("L")
-        image = image.resize((256,256))
+    contents = await file.read()
 
-        image = np.array(image)/255.0
-        image = image.reshape(1,256,256,1)
+    image = Image.open(io.BytesIO(contents)).convert("L")
+    image = image.resize((256,256))
 
-        pred = model.predict(image)
+    image = np.array(image) / 255.0
+    image = image.reshape(1,256,256,1)
 
-        index = int(np.argmax(pred))
-        confidence = float(np.max(pred))
+    pred = model.predict(image)
 
-        disease = labels[index]
+    index = int(np.argmax(pred))
+    confidence = float(np.max(pred))
 
-        return {
-            "disease": disease,
-            "confidence": confidence,
-            "suggestion": suggestions[disease]
-        }
+    disease = labels[index]
 
-    except Exception as e:
-        return {
-            "error": str(e)
-        }
+    return {
+        "disease": disease,
+        "confidence": confidence,
+        "suggestion": suggestions[disease]
+    }
