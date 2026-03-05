@@ -39,13 +39,14 @@ async def predict(file: UploadFile = File(...)):
         contents = await file.read()
 
         print("Received image")
-        print(image.shape)
 
         image = Image.open(io.BytesIO(contents)).convert("L")
         image = image.resize((256,256))
 
         image = np.array(image) / 255.0
         image = image.reshape(1,256,256,1)
+
+        print(image.shape)   # ✅ moved here
 
         pred = model.predict(image)
 
